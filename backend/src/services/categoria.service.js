@@ -6,7 +6,6 @@ async function getAllCategorias() {
 }
 
 async function saveCategoria(nombre) {
-  // Aquí puedes meter validaciones antes de guardar
   const nuevaCategoria = await categoriaRepository.create(nombre);
   return nuevaCategoria;
 }
