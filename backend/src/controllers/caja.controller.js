@@ -1,14 +1,36 @@
-const { categoriaService } = require('../services/categoria.service');
+const { cajaService } = require('../services/caja.service');
 
-class CategoriaController {
+class CajaController {
   constructor(service) {
     this.Service = service;
   }
 
-  async crear(req, res) {
+  async abrir(req, res) {
     try {
-      const respuesta = await this.Service.crear(req.body);
+      const respuesta = await this.Service.abrir(req.body);
       return res.status(201).json(respuesta);
+    } catch (error) {
+      const codigo = error.statusCode || 500;
+      const message = error.message || 'Error interno, consulta los logs del servidor';
+      return res.status(codigo).json({ message });
+    }
+  }
+
+  async cerrar(req, res) {
+    try {
+      const respuesta = await this.Service.cerrar(req.params.id, req.body);
+      return res.json(respuesta);
+    } catch (error) {
+      const codigo = error.statusCode || 500;
+      const message = error.message || 'Error interno, consulta los logs del servidor';
+      return res.status(codigo).json({ message });
+    }
+  }
+
+  async consultarAbierta(req, res) {
+    try {
+      const respuesta = await this.Service.consultarAbierta();
+      return res.json(respuesta);
     } catch (error) {
       const codigo = error.statusCode || 500;
       const message = error.message || 'Error interno, consulta los logs del servidor';
@@ -37,29 +59,7 @@ class CategoriaController {
       return res.status(codigo).json({ message });
     }
   }
-
-  async actualizar(req, res) {
-    try {
-      const respuesta = await this.Service.actualizar(req.params.id, req.body);
-      return res.json(respuesta);
-    } catch (error) {
-      const codigo = error.statusCode || 500;
-      const message = error.message || 'Error interno, consulta los logs del servidor';
-      return res.status(codigo).json({ message });
-    }
-  }
-
-  async eliminar(req, res) {
-    try {
-      const respuesta = await this.Service.eliminar(req.params.id);
-      return res.json(respuesta);
-    } catch (error) {
-      const codigo = error.statusCode || 500;
-      const message = error.message || 'Error interno, consulta los logs del servidor';
-      return res.status(codigo).json({ message });
-    }
-  }
 }
 
-const categoriaController = new CategoriaController(categoriaService);
-module.exports = { CategoriaController, categoriaController };
+const cajaController = new CajaController(cajaService);
+module.exports = { CajaController, cajaController };

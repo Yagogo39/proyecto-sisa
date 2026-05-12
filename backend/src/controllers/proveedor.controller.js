@@ -1,6 +1,6 @@
-const { categoriaService } = require('../services/categoria.service');
+const { proveedorService } = require('../services/proveedor.service');
 
-class CategoriaController {
+class ProveedorController {
   constructor(service) {
     this.Service = service;
   }
@@ -61,5 +61,5 @@ class CategoriaController {
   }
 }
 
-const categoriaController = new CategoriaController(categoriaService);
-module.exports = { CategoriaController, categoriaController };
+const proveedorController = new ProveedorController(proveedorService);
+module.exports = { ProveedorController, proveedorController };

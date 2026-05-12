@@ -1,6 +1,6 @@
-const { categoriaService } = require('../services/categoria.service');
+const { productoService } = require('../services/producto.service');
 
-class CategoriaController {
+class ProductoController {
   constructor(service) {
     this.Service = service;
   }
@@ -19,6 +19,17 @@ class CategoriaController {
   async leer(req, res) {
     try {
       const lista = await this.Service.leer();
+      return res.json(lista);
+    } catch (error) {
+      const codigo = error.statusCode || 500;
+      const message = error.message || 'Error interno, consulta los logs del servidor';
+      return res.status(codigo).json({ message });
+    }
+  }
+
+  async alertasStockBajo(req, res) {
+    try {
+      const lista = await this.Service.alertasStockBajo();
       return res.json(lista);
     } catch (error) {
       const codigo = error.statusCode || 500;
@@ -49,6 +60,17 @@ class CategoriaController {
     }
   }
 
+  async ajustarStock(req, res) {
+    try {
+      const respuesta = await this.Service.ajustarStock(req.params.id, req.body.cantidad);
+      return res.json(respuesta);
+    } catch (error) {
+      const codigo = error.statusCode || 500;
+      const message = error.message || 'Error interno, consulta los logs del servidor';
+      return res.status(codigo).json({ message });
+    }
+  }
+
   async eliminar(req, res) {
     try {
       const respuesta = await this.Service.eliminar(req.params.id);
@@ -61,5 +83,5 @@ class CategoriaController {
   }
 }
 
-const categoriaController = new CategoriaController(categoriaService);
-module.exports = { CategoriaController, categoriaController };
+const productoController = new ProductoController(productoService);
+module.exports = { ProductoController, productoController };
