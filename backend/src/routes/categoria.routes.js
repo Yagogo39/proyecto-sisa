@@ -1,8 +1,12 @@
 const express = require('express');
-const router = express.Router();
-const categoriaController = require('../controllers/categoria.controller');
+const { categoriaController } = require('../controllers/categoria.controller');
 
-router.get('/', categoriaController.getCategorias);
-router.post('/', categoriaController.addCategoria);
+const categoriaRouter = express.Router();
 
-module.exports = router;
+categoriaRouter.post('/', (req, res) => categoriaController.crear(req, res));
+categoriaRouter.get('/', (req, res) => categoriaController.leer(req, res));
+categoriaRouter.get('/:id', (req, res) => categoriaController.leerPorId(req, res));
+categoriaRouter.patch('/:id', (req, res) => categoriaController.actualizar(req, res));
+categoriaRouter.delete('/:id', (req, res) => categoriaController.eliminar(req, res));
+
+module.exports = categoriaRouter;
