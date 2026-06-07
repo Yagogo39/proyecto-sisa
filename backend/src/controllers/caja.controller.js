@@ -11,8 +11,7 @@ class CajaController {
       return res.status(201).json(respuesta);
     } catch (error) {
       const codigo = error.statusCode || 500;
-      const message = error.message || 'Error interno, consulta los logs del servidor';
-      return res.status(codigo).json({ message });
+      return res.status(codigo).json({ message: error.message || 'Error interno' });
     }
   }
 
@@ -22,8 +21,7 @@ class CajaController {
       return res.json(respuesta);
     } catch (error) {
       const codigo = error.statusCode || 500;
-      const message = error.message || 'Error interno, consulta los logs del servidor';
-      return res.status(codigo).json({ message });
+      return res.status(codigo).json({ message: error.message || 'Error interno' });
     }
   }
 
@@ -32,20 +30,22 @@ class CajaController {
       const respuesta = await this.Service.consultarAbierta();
       return res.json(respuesta);
     } catch (error) {
+      
+      if (error.statusCode === 404) {
+        return res.json(null);
+      }
       const codigo = error.statusCode || 500;
-      const message = error.message || 'Error interno, consulta los logs del servidor';
-      return res.status(codigo).json({ message });
+      return res.status(codigo).json({ message: error.message || 'Error interno' });
     }
   }
 
   async leer(req, res) {
     try {
-      const lista = await this.Service.leer();
-      return res.json(lista);
+      const respuesta = await this.Service.leer();
+      return res.json(respuesta);
     } catch (error) {
       const codigo = error.statusCode || 500;
-      const message = error.message || 'Error interno, consulta los logs del servidor';
-      return res.status(codigo).json({ message });
+      return res.status(codigo).json({ message: error.message || 'Error interno' });
     }
   }
 
@@ -55,8 +55,7 @@ class CajaController {
       return res.json(respuesta);
     } catch (error) {
       const codigo = error.statusCode || 500;
-      const message = error.message || 'Error interno, consulta los logs del servidor';
-      return res.status(codigo).json({ message });
+      return res.status(codigo).json({ message: error.message || 'Error interno' });
     }
   }
 }

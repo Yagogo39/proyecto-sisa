@@ -35,13 +35,14 @@ class TemporadaRepository {
     return await db.get(sql, [idTemporada]);
   }
 
-  async findActiva() {
+  async findActivas() {
     const db = await conectar();
     const sql = `
       SELECT idTemporada, nombre, fecha_inicio, fecha_fin, estado
-      FROM Temporada WHERE estado = 'activa' LIMIT 1
+      FROM Temporada WHERE estado = 'activa'
+      ORDER BY fecha_inicio DESC
     `;
-    return await db.get(sql);
+    return await db.all(sql);
   }
 
   async update(idTemporada, datos) {
@@ -69,8 +70,14 @@ class TemporadaRepository {
 
   async activar(idTemporada) {
     const db = await conectar();
-    await this.desactivarTodas();
     const sql = `UPDATE Temporada SET estado = 'activa' WHERE idTemporada = ?`;
+    const resultado = await db.run(sql, [idTemporada]);
+    return resultado.changes > 0;
+  }
+
+  async desactivar(idTemporada) {
+    const db = await conectar();
+    const sql = `UPDATE Temporada SET estado = 'inactiva' WHERE idTemporada = ?`;
     const resultado = await db.run(sql, [idTemporada]);
     return resultado.changes > 0;
   }

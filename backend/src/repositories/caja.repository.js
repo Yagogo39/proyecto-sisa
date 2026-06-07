@@ -16,7 +16,7 @@ class CajaRepository {
     const db = await conectar();
     const sql = `
       SELECT c.idCaja, c.fecha, c.horaApertura, c.montoInicial, c.estado,
-             c.idUsuario, u.nombre AS nombreUsuario
+             c.idUsuario, u.nombre AS nombreUsuario, u.apellido AS apellidoUsuario
       FROM Caja c
       INNER JOIN Usuario u ON c.idUsuario = u.idUsuario
       WHERE c.estado = 'abierta'
@@ -29,10 +29,14 @@ class CajaRepository {
     const db = await conectar();
     const sql = `
       SELECT c.idCaja, c.fecha, c.horaApertura, c.horaCierre, c.montoInicial,
-             c.montoFinal, c.total_ventas_calculado, c.diferencia, c.estado,
-             c.idUsuario, u.nombre AS nombreUsuario
+             c.montoFinal, c.total_ventas_calculado, c.diferencia, c.observaciones,
+             c.estado, c.idUsuario,
+             u.nombre AS nombreUsuario, u.apellido AS apellidoUsuario,
+             c.idUsuarioCierre,
+             uc.nombre AS nombreUsuarioCierre, uc.apellido AS apellidoUsuarioCierre
       FROM Caja c
       INNER JOIN Usuario u ON c.idUsuario = u.idUsuario
+      LEFT JOIN Usuario uc ON c.idUsuarioCierre = uc.idUsuario
       WHERE c.idCaja = ?
     `;
     return await db.get(sql, [idCaja]);
@@ -42,10 +46,12 @@ class CajaRepository {
     const db = await conectar();
     const sql = `
       SELECT c.idCaja, c.fecha, c.horaApertura, c.horaCierre, c.montoInicial,
-             c.montoFinal, c.total_ventas_calculado, c.diferencia, c.estado,
-             u.nombre AS nombreUsuario
+             c.montoFinal, c.total_ventas_calculado, c.diferencia, c.observaciones, c.estado,
+             u.nombre AS nombreUsuario, u.apellido AS apellidoUsuario,
+             uc.nombre AS nombreUsuarioCierre, uc.apellido AS apellidoUsuarioCierre
       FROM Caja c
       INNER JOIN Usuario u ON c.idUsuario = u.idUsuario
+      LEFT JOIN Usuario uc ON c.idUsuarioCierre = uc.idUsuario
       ORDER BY c.fecha DESC, c.horaApertura DESC
     `;
     return await db.all(sql);
@@ -53,25 +59,55 @@ class CajaRepository {
 
   async calcularTotalVentas(idCaja) {
     const db = await conectar();
-    const caja = await this.findById(idCaja);
-    if (!caja) return 0;
-
     const sql = `
       SELECT COALESCE(SUM(total), 0) AS totalVentas
       FROM Venta
-      WHERE date(fecha) = ? AND time(hora) >= ?
-        AND (? IS NULL OR time(hora) <= ?)
+      WHERE idCaja = ?
     `;
-    const resultado = await db.get(sql, [
-      caja.fecha,
-      caja.horaApertura,
-      caja.horaCierre,
-      caja.horaCierre
-    ]);
+    const resultado = await db.get(sql, [idCaja]);
     return resultado.totalVentas || 0;
   }
 
-  async cerrar(idCaja, montoFinal, totalVentasCalculado, diferencia) {
+  async desgloseVentas(idCaja) {
+    const db = await conectar();
+    const sql = `
+      SELECT tipo_venta AS tipo, COUNT(*) AS cantidad, COALESCE(SUM(total), 0) AS total
+      FROM Venta
+      WHERE idCaja = ?
+      GROUP BY tipo_venta
+    `;
+    return await db.all(sql, [idCaja]);
+  }
+
+  async ventasDeCaja(idCaja) {
+    const db = await conectar();
+    const sql = `
+      SELECT v.idVenta, v.fecha, v.hora, v.total, v.tipo_venta AS tipoVenta,
+             v.descripcion, u.nombre AS empleado, u.apellido AS apellidoEmpleado
+      FROM Venta v
+      INNER JOIN Usuario u ON v.idUsuario = u.idUsuario
+      WHERE v.idCaja = ?
+      ORDER BY v.hora ASC
+    `;
+    return await db.all(sql, [idCaja]);
+  }
+
+  async empleadosDeCaja(idCaja) {
+    const db = await conectar();
+    const sql = `
+      SELECT DISTINCT u.idUsuario, u.nombre, u.apellido,
+             COUNT(v.idVenta) AS cantidadVentas,
+             COALESCE(SUM(v.total), 0) AS totalVendido
+      FROM Venta v
+      INNER JOIN Usuario u ON v.idUsuario = u.idUsuario
+      WHERE v.idCaja = ?
+      GROUP BY u.idUsuario, u.nombre, u.apellido
+      ORDER BY totalVendido DESC
+    `;
+    return await db.all(sql, [idCaja]);
+  }
+
+  async cerrar(idCaja, { montoFinal, totalVentasCalculado, diferencia, observaciones, idUsuarioCierre }) {
     const db = await conectar();
     const sql = `
       UPDATE Caja
@@ -79,10 +115,19 @@ class CajaRepository {
           montoFinal = ?,
           total_ventas_calculado = ?,
           diferencia = ?,
+          observaciones = ?,
+          idUsuarioCierre = ?,
           estado = 'cerrada'
       WHERE idCaja = ?
     `;
-    const resultado = await db.run(sql, [montoFinal, totalVentasCalculado, diferencia, idCaja]);
+    const resultado = await db.run(sql, [
+      montoFinal,
+      totalVentasCalculado,
+      diferencia,
+      observaciones || null,
+      idUsuarioCierre,
+      idCaja
+    ]);
     return resultado.changes > 0;
   }
 }

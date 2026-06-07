@@ -3,14 +3,34 @@ const { open } = require('sqlite');
 const path = require('path');
 const fs = require('fs');
 
-const dbPath = path.join(__dirname, '..', '..', 'sistema_cyber.db');
-const schemaPath = path.join(__dirname, '..', '..', 'schema.sql');
+function getDbPath() {
+  if (process.env.DB_PATH) {
+    return process.env.DB_PATH;
+  }
+  if (process.pkg) {
+    const exeDir = path.dirname(process.execPath);
+    return path.join(exeDir, 'sistema_cyber.db');
+  }
+  return path.join(__dirname, '..', '..', 'sistema_cyber.db');
+}
+
+function getSchemaPath() {
+  if (process.pkg) {
+    const exeDir = path.dirname(process.execPath);
+    const externo = path.join(exeDir, 'schema.sql');
+    if (fs.existsSync(externo)) return externo;
+    return path.join(__dirname, '..', '..', 'schema.sql');
+  }
+  return path.join(__dirname, '..', '..', 'schema.sql');
+}
+
+const dbPath = getDbPath();
+const schemaPath = getSchemaPath();
 
 let db = null;
 
 async function conectar() {
   if (db) return db;
-
   db = await open({ filename: dbPath, driver: sqlite3.Database });
   await db.exec('PRAGMA foreign_keys = ON;');
 
@@ -20,8 +40,8 @@ async function conectar() {
   if (!tablaUsuario && fs.existsSync(schemaPath)) {
     const schema = fs.readFileSync(schemaPath, 'utf8');
     await db.exec(schema);
+    console.log('BD creada desde schema.sql');
   }
-
   return db;
 }
 

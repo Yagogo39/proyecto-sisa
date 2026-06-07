@@ -1,18 +1,21 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Backend SIS-A Papeleria Don Max",
   "main": "index.js",
+  "bin": "index.js",
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
-    "seed": "node seed.js"
+    "seed": "node seed.js",
+    "build": "pkg . --targets node18-win-x64 --output ../frontend/backend-bin/backend.exe"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
@@ -20,5 +23,13 @@
     "jsonwebtoken": "^9.0.3",
     "sqlite": "^5.1.1",
     "sqlite3": "^6.0.1"
+  },
+  "pkg": {
+    "assets": [
+      "schema.sql",
+      "node_modules/sqlite3/**/*",
+      "node_modules/bcrypt/**/*"
+    ],
+    "targets": ["node18-win-x64"]
   }
 }

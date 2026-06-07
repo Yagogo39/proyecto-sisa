@@ -5,6 +5,8 @@ const { proveedorRepository } = require('../repositories/proveedor.repository');
 const { BadRequestError } = require('../utils/errors/BadRequestError');
 const { NotFoundError } = require('../utils/errors/NotFoundError');
 
+const UNIDADES_VALIDAS = ['pieza', 'metro', 'hoja', 'paquete'];
+
 class ProductoService {
   constructor(repo, categoriaRepo, temporadaRepo, proveedorRepo) {
     this.Repo = repo;
@@ -16,7 +18,7 @@ class ProductoService {
   async crear(datos) {
     const {
       nombre, precioVenta, precioCompra, stockActual, stockMinimo,
-      idCategoria, idTemporada, idProveedor
+      unidadMedida, idCategoria, idTemporada, idProveedor
     } = datos;
 
     if (!nombre || precioVenta === undefined || stockActual === undefined ||
@@ -26,6 +28,10 @@ class ProductoService {
 
     if (precioVenta < 0 || stockActual < 0 || stockMinimo < 0) {
       throw new BadRequestError('Los valores numéricos no pueden ser negativos');
+    }
+
+    if (unidadMedida && !UNIDADES_VALIDAS.includes(unidadMedida)) {
+      throw new BadRequestError(`La unidad de medida debe ser una de: ${UNIDADES_VALIDAS.join(', ')}`);
     }
 
     const categoria = await this.CategoriaRepo.findById(idCategoria);
@@ -50,6 +56,7 @@ class ProductoService {
       precioVenta,
       stockActual,
       stockMinimo,
+      unidadMedida: unidadMedida || 'pieza',
       idCategoria,
       idTemporada: idTemporada || null
     });
@@ -102,11 +109,16 @@ class ProductoService {
       }
     }
 
+    if (datos.unidadMedida && !UNIDADES_VALIDAS.includes(datos.unidadMedida)) {
+      throw new BadRequestError(`La unidad de medida debe ser una de: ${UNIDADES_VALIDAS.join(', ')}`);
+    }
+
     const datosActualizados = {
       nombre: datos.nombre || producto.nombre,
       precioVenta: datos.precioVenta !== undefined ? datos.precioVenta : producto.precioVenta,
       stockActual: datos.stockActual !== undefined ? datos.stockActual : producto.stockActual,
       stockMinimo: datos.stockMinimo !== undefined ? datos.stockMinimo : producto.stockMinimo,
+      unidadMedida: datos.unidadMedida || producto.unidadMedida,
       idCategoria: datos.idCategoria || producto.idCategoria,
       idTemporada: datos.idTemporada !== undefined ? datos.idTemporada : producto.idTemporada
     };

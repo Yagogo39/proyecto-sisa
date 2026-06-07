@@ -71,6 +71,17 @@ class TemporadaController {
     }
   }
 
+  async desactivar(req, res) {
+    try {
+      const respuesta = await this.Service.desactivar(req.params.id);
+      return res.json(respuesta);
+    } catch (error) {
+      const codigo = error.statusCode || 500;
+      const message = error.message || 'Error interno, consulta los logs del servidor';
+      return res.status(codigo).json({ message });
+    }
+  }
+
   async eliminar(req, res) {
     try {
       const respuesta = await this.Service.eliminar(req.params.id);

@@ -3,12 +3,22 @@ const { conectar } = require('../config/db');
 class VentaRepository {
   async create(venta) {
     const db = await conectar();
+    
+    const cajaAbierta = await db.get(`SELECT idCaja FROM Caja WHERE estado = 'abierta' LIMIT 1`);
+    const idCaja = cajaAbierta?.idCaja || null;
+
     const sql = `
-      INSERT INTO Venta (fecha, hora, total, tipo_venta, idUsuario)
-      VALUES (date('now'), time('now'), ?, ?, ?)
+      INSERT INTO Venta (fecha, hora, total, tipo_venta, descripcion, idCaja, idUsuario)
+      VALUES (date('now'), time('now'), ?, ?, ?, ?, ?)
     `;
-    const resultado = await db.run(sql, [venta.total, venta.tipoVenta, venta.idUsuario]);
-    return { idVenta: resultado.lastID, ...venta };
+    const resultado = await db.run(sql, [
+      venta.total,
+      venta.tipoVenta,
+      venta.descripcion || null,
+      idCaja,
+      venta.idUsuario
+    ]);
+    return { idVenta: resultado.lastID, idCaja, ...venta };
   }
 
   async agregarDetalle(idVenta, detalle) {
@@ -30,17 +40,14 @@ class VentaRepository {
     const db = await conectar();
     let condiciones = [];
     let params = [];
-
     if (fechaInicio) { condiciones.push("v.fecha >= ?"); params.push(fechaInicio); }
     if (fechaFin)    { condiciones.push("v.fecha <= ?"); params.push(fechaFin); }
     if (tipoVenta)   { condiciones.push("v.tipo_venta = ?"); params.push(tipoVenta); }
     if (idUsuario)   { condiciones.push("v.idUsuario = ?"); params.push(idUsuario); }
-
     const where = condiciones.length ? 'WHERE ' + condiciones.join(' AND ') : '';
-
     const sql = `
-      SELECT v.idVenta, v.fecha, v.hora, v.total, v.tipo_venta AS tipoVenta,
-             u.nombre AS empleado, u.idUsuario
+      SELECT v.idVenta, v.fecha, v.hora, v.total, v.tipo_venta AS tipoVenta, v.descripcion,
+             v.idCaja, u.nombre AS empleado, u.idUsuario
       FROM Venta v
       INNER JOIN Usuario u ON v.idUsuario = u.idUsuario
       ${where}
@@ -52,15 +59,14 @@ class VentaRepository {
   async findById(idVenta) {
     const db = await conectar();
     const sqlVenta = `
-      SELECT v.idVenta, v.fecha, v.hora, v.total, v.tipo_venta AS tipoVenta,
-             u.nombre AS empleado
+      SELECT v.idVenta, v.fecha, v.hora, v.total, v.tipo_venta AS tipoVenta, v.descripcion,
+             v.idCaja, u.nombre AS empleado
       FROM Venta v
       INNER JOIN Usuario u ON v.idUsuario = u.idUsuario
       WHERE v.idVenta = ?
     `;
     const venta = await db.get(sqlVenta, [idVenta]);
     if (!venta) return null;
-
     const sqlDetalle = `
       SELECT vp.idProducto, p.nombre, vp.cantidad,
              vp.precioUnitario, vp.subTotal
@@ -80,6 +86,35 @@ class VentaRepository {
     `;
     const resultado = await db.get(sql, [fecha]);
     return resultado.total;
+  }
+
+  async productosMasRentables({ fechaInicio, fechaFin, limite = 5 }) {
+    const db = await conectar();
+    let condiciones = ["v.tipo_venta = 'producto'"];
+    let params = [];
+    if (fechaInicio) { condiciones.push("v.fecha >= ?"); params.push(fechaInicio); }
+    if (fechaFin)    { condiciones.push("v.fecha <= ?"); params.push(fechaFin); }
+    const where = 'WHERE ' + condiciones.join(' AND ');
+    params.push(limite);
+
+    const sql = `
+      SELECT
+        p.idProducto,
+        p.nombre,
+        SUM(vp.cantidad) AS unidadesVendidas,
+        SUM(vp.subTotal) AS ingresos,
+        AVG(vp.precioUnitario) AS precioPromedio,
+        COALESCE(AVG(pp.precioCompra), 0) AS costoPromedio
+      FROM Venta_Producto vp
+      INNER JOIN Producto p ON p.idProducto = vp.idProducto
+      INNER JOIN Venta v ON v.idVenta = vp.idVenta
+      LEFT JOIN Proveedor_Producto pp ON pp.idProducto = p.idProducto
+      ${where}
+      GROUP BY p.idProducto, p.nombre
+      ORDER BY ingresos DESC
+      LIMIT ?
+    `;
+    return await db.all(sql, params);
   }
 }
 

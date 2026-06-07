@@ -5,14 +5,15 @@ class ProductoRepository {
     const db = await conectar();
     const sql = `
       INSERT INTO Producto
-        (nombre, precioVenta, stockActual, stockMinimo, fechaRegistro, estado, idCategoria, idTemporada)
-      VALUES (?, ?, ?, ?, datetime('now'), 'activo', ?, ?)
+        (nombre, precioVenta, stockActual, stockMinimo, unidadMedida, fechaRegistro, estado, idCategoria, idTemporada)
+      VALUES (?, ?, ?, ?, ?, datetime('now'), 'activo', ?, ?)
     `;
     const resultado = await db.run(sql, [
       producto.nombre,
       producto.precioVenta,
       producto.stockActual,
       producto.stockMinimo,
+      producto.unidadMedida || 'pieza',
       producto.idCategoria,
       producto.idTemporada || null
     ]);
@@ -32,7 +33,7 @@ class ProductoRepository {
     const db = await conectar();
     const sql = `
       SELECT p.idProducto, p.nombre, p.precioVenta, p.stockActual, p.stockMinimo,
-             p.fechaRegistro, p.estado, p.idCategoria, c.nombre AS categoria,
+             p.unidadMedida, p.fechaRegistro, p.estado, p.idCategoria, c.nombre AS categoria,
              p.idTemporada, t.nombre AS temporada
       FROM Producto p
       LEFT JOIN Categoria c ON p.idCategoria = c.idCategoria
@@ -47,7 +48,7 @@ class ProductoRepository {
     const db = await conectar();
     const sql = `
       SELECT p.idProducto, p.nombre, p.precioVenta, p.stockActual, p.stockMinimo,
-             p.fechaRegistro, p.estado, p.idCategoria, c.nombre AS categoria,
+             p.unidadMedida, p.fechaRegistro, p.estado, p.idCategoria, c.nombre AS categoria,
              p.idTemporada, t.nombre AS temporada
       FROM Producto p
       LEFT JOIN Categoria c ON p.idCategoria = c.idCategoria
@@ -66,7 +67,8 @@ class ProductoRepository {
   async findStockBajo() {
     const db = await conectar();
     const sql = `
-      SELECT p.idProducto, p.nombre, p.stockActual, p.stockMinimo, c.nombre AS categoria
+      SELECT p.idProducto, p.nombre, p.stockActual, p.stockMinimo, p.unidadMedida,
+             c.nombre AS categoria
       FROM Producto p
       LEFT JOIN Categoria c ON p.idCategoria = c.idCategoria
       WHERE p.stockActual <= p.stockMinimo AND p.estado = 'activo'
@@ -90,7 +92,7 @@ class ProductoRepository {
     const db = await conectar();
     const sql = `
       UPDATE Producto
-      SET nombre = ?, precioVenta = ?, stockActual = ?, stockMinimo = ?,
+      SET nombre = ?, precioVenta = ?, stockActual = ?, stockMinimo = ?, unidadMedida = ?,
           idCategoria = ?, idTemporada = ?
       WHERE idProducto = ?
     `;
@@ -99,6 +101,7 @@ class ProductoRepository {
       datos.precioVenta,
       datos.stockActual,
       datos.stockMinimo,
+      datos.unidadMedida,
       datos.idCategoria,
       datos.idTemporada,
       idProducto

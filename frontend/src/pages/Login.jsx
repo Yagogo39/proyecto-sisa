@@ -1,195 +1,235 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { User, Lock, ArrowLeft, LogIn, KeyRound, ShieldCheck } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
+import api from '../services/api'
 
 export default function Login() {
-  const [form, setForm] = useState({ nombreUsuario: '', contrasena: '', rol: 'admin' });
-  const [error, setError] = useState('');
-  const [cargando, setCargando] = useState(false);
-  const [mostrarRecuperar, setMostrarRecuperar] = useState(false);
-  const [formRecuperar, setFormRecuperar] = useState({ nombreUsuario: '', nuevaContrasena: '', confirmarContrasena: '' });
-  const [mensajeRecuperar, setMensajeRecuperar] = useState('');
-  const [errorRecuperar, setErrorRecuperar] = useState('');
-  const { login } = useAuth();
-  const navigate = useNavigate();
+  const [form, setForm] = useState({ nombreUsuario: '', contrasena: '', rol: 'admin' })
+  const [error, setError] = useState('')
+  const [cargando, setCargando] = useState(false)
+  const [mostrarRecuperar, setMostrarRecuperar] = useState(false)
+  const [formRec, setFormRec] = useState({ nombreUsuario: '', nuevaContrasena: '', confirmarContrasena: '' })
+  const [msgRec, setMsgRec] = useState('')
+  const [errRec, setErrRec] = useState('')
+  const { login } = useAuth()
+  const navigate = useNavigate()
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  const handleChangeRecuperar = (e) => {
-    setFormRecuperar({ ...formRecuperar, [e.target.name]: e.target.value });
-  };
+  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value })
+  const handleChangeRec = (e) => setFormRec({ ...formRec, [e.target.name]: e.target.value })
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setCargando(true);
+    e.preventDefault()
+    setError('')
+    setCargando(true)
     try {
-      const res = await api.post('/user/ingresar', form);
-      login(res.data.usuario, res.data.token);
-      navigate('/home');
+      const res = await api.post('/user/ingresar', form)
+      login(res.data.usuario, res.data.token)
+      navigate('/home')
     } catch (err) {
-      setError(err.response?.data?.message || 'Error al iniciar sesión');
+      setError(err.response?.data?.message || 'Error al iniciar sesión')
     } finally {
-      setCargando(false);
+      setCargando(false)
     }
-  };
+  }
 
   const handleRecuperar = async (e) => {
-    e.preventDefault();
-    setErrorRecuperar('');
-    setMensajeRecuperar('');
+    e.preventDefault()
+    setErrRec('')
+    setMsgRec('')
     try {
-      await api.patch('/user/cambiar-contrasena', formRecuperar);
-      setMensajeRecuperar('Contraseña actualizada correctamente');
-      setFormRecuperar({ nombreUsuario: '', nuevaContrasena: '', confirmarContrasena: '' });
+      await api.patch('/user/cambiar-contrasena', formRec)
+      setMsgRec('Contraseña actualizada correctamente')
+      setFormRec({ nombreUsuario: '', nuevaContrasena: '', confirmarContrasena: '' })
       setTimeout(() => {
-        setMostrarRecuperar(false);
-        setMensajeRecuperar('');
-      }, 2000);
+        setMostrarRecuperar(false)
+        setMsgRec('')
+      }, 2000)
     } catch (err) {
-      setErrorRecuperar(err.response?.data?.message || 'Error al cambiar contraseña');
+      setErrRec(err.response?.data?.message || 'Error al cambiar contraseña')
     }
-  };
+  }
 
   if (mostrarRecuperar) {
     return (
-      <div style={styles.fondo}>
-        <div style={styles.caja}>
-          <h2 style={styles.titulo}>Recuperar Contraseña</h2>
-          <h3 style={styles.subtitulo}>Nueva Contraseña</h3>
-
-          {mensajeRecuperar && <p style={styles.exito}>{mensajeRecuperar}</p>}
-          {errorRecuperar && <p style={styles.error}>{errorRecuperar}</p>}
-
-          <form onSubmit={handleRecuperar}>
-            <div style={styles.campo}>
-              <label>Nombre de usuario</label>
-              <input
-                style={styles.input}
-                type="text"
-                name="nombreUsuario"
-                value={formRecuperar.nombreUsuario}
-                onChange={handleChangeRecuperar}
-                placeholder="Tu usuario"
-                required
-              />
+      <div className="min-h-screen bg-[var(--color-bg)] grid place-items-center p-4">
+        <div className="w-full max-w-md">
+          <div className="bg-[var(--color-sidebar)] text-white rounded-t-2xl px-6 py-4">
+            <h2 className="text-sm font-medium">Recuperar Contraseña</h2>
+          </div>
+          <div className="bg-white rounded-b-2xl border border-[var(--color-border)] px-8 py-10 shadow-sm">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 rounded-full bg-[var(--color-accent-soft)] grid place-items-center mx-auto mb-3">
+                <KeyRound size={28} className="text-[var(--color-accent)]" />
+              </div>
+              <h1 className="text-xl font-bold text-[var(--color-heading)]">Nueva Contraseña</h1>
             </div>
-            <div style={styles.campo}>
-              <label>Nueva contraseña</label>
-              <input
-                style={styles.input}
-                type="password"
-                name="nuevaContrasena"
-                value={formRecuperar.nuevaContrasena}
-                onChange={handleChangeRecuperar}
-                placeholder="Mín. 8 caracteres"
-                required
-              />
-            </div>
-            <div style={styles.campo}>
-              <label>Confirmar contraseña</label>
-              <input
-                style={styles.input}
-                type="password"
-                name="confirmarContrasena"
-                value={formRecuperar.confirmarContrasena}
-                onChange={handleChangeRecuperar}
-                placeholder="Repite la contraseña"
-                required
-              />
-            </div>
-            <button style={styles.boton} type="submit">Cambiar contraseña</button>
-          </form>
 
-          <p style={styles.link} onClick={() => setMostrarRecuperar(false)}>
-            ← Volver al inicio
-          </p>
+            {msgRec && (
+              <div className="mb-4 px-4 py-3 rounded-lg bg-emerald-50 text-emerald-700 text-sm border border-emerald-200">
+                {msgRec}
+              </div>
+            )}
+            {errRec && (
+              <div className="mb-4 px-4 py-3 rounded-lg bg-red-50 text-red-700 text-sm border border-red-200">
+                {errRec}
+              </div>
+            )}
+
+            <form onSubmit={handleRecuperar} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-heading)] mb-1.5">
+                  Nombre de usuario
+                </label>
+                <input
+                  className="input"
+                  type="text"
+                  name="nombreUsuario"
+                  value={formRec.nombreUsuario}
+                  onChange={handleChangeRec}
+                  placeholder="Tu usuario"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-heading)] mb-1.5">
+                  Nueva contraseña
+                </label>
+                <input
+                  className="input"
+                  type="password"
+                  name="nuevaContrasena"
+                  value={formRec.nuevaContrasena}
+                  onChange={handleChangeRec}
+                  placeholder="Mín. 8 caracteres"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-heading)] mb-1.5">
+                  Confirmar contraseña
+                </label>
+                <input
+                  className="input"
+                  type="password"
+                  name="confirmarContrasena"
+                  value={formRec.confirmarContrasena}
+                  onChange={handleChangeRec}
+                  placeholder="Repite la contraseña"
+                  required
+                />
+              </div>
+
+              <button type="submit" className="btn-primary w-full justify-center mt-2">
+                Cambiar contraseña
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMostrarRecuperar(false)}
+                className="w-full flex items-center justify-center gap-1.5 text-sm text-[var(--color-muted)] hover:text-[var(--color-accent)] transition-colors mt-2"
+              >
+                <ArrowLeft size={14} /> Volver al inicio
+              </button>
+            </form>
+          </div>
         </div>
       </div>
-    );
+    )
   }
 
   return (
-    <div style={styles.fondo}>
-      <div style={styles.caja}>
-        <h2 style={styles.titulo}>Papelería "Don Max"</h2>
-        <h3 style={styles.subtitulo}>Inicio de Sesión</h3>
+    <div className="min-h-screen bg-[var(--color-bg)] grid place-items-center p-4">
+      <div className="w-full max-w-md">
+        <div className="bg-[var(--color-sidebar)] text-white rounded-t-2xl px-6 py-4 flex items-center gap-2">
+          <ShieldCheck size={18} className="text-[var(--color-accent)]" />
+          <h2 className="text-sm font-medium">Papelería "Don Max"</h2>
+        </div>
 
-        {error && <p style={styles.error}>{error}</p>}
-
-        <form onSubmit={handleSubmit}>
-          <div style={styles.campo}>
-            <label>Nombre de usuario</label>
-            <input
-              style={styles.input}
-              type="text"
-              name="nombreUsuario"
-              value={form.nombreUsuario}
-              onChange={handleChange}
-              placeholder="Ingresa tu usuario"
-              required
-            />
+        <div className="bg-white rounded-b-2xl border border-[var(--color-border)] px-8 py-10 shadow-sm">
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 rounded-full bg-[var(--color-accent-soft)] grid place-items-center mx-auto mb-3">
+              <User size={28} className="text-[var(--color-accent)]" />
+            </div>
+            <h1 className="text-xl font-bold text-[var(--color-heading)]">Inicio de Sesión</h1>
+            <p className="text-sm text-[var(--color-muted)] mt-1">Accede a tu cuenta</p>
           </div>
 
-          <div style={styles.campo}>
-            <label>Rol de usuario</label>
-            <select style={styles.input} name="rol" value={form.rol} onChange={handleChange}>
-              <option value="admin">Administrador</option>
-              <option value="empleado">Empleado</option>
-            </select>
-          </div>
+          {error && (
+            <div className="mb-4 px-4 py-3 rounded-lg bg-red-50 text-red-700 text-sm border border-red-200">
+              {error}
+            </div>
+          )}
 
-          <div style={styles.campo}>
-            <label>Contraseña</label>
-            <input
-              style={styles.input}
-              type="password"
-              name="contrasena"
-              value={form.contrasena}
-              onChange={handleChange}
-              placeholder="••••••••"
-              required
-            />
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-[var(--color-heading)] mb-1.5">
+                Nombre de usuario
+              </label>
+              <input
+                className="input"
+                type="text"
+                name="nombreUsuario"
+                value={form.nombreUsuario}
+                onChange={handleChange}
+                placeholder="Ingresa tu usuario"
+                required
+              />
+            </div>
 
-          <p style={styles.link} onClick={() => setMostrarRecuperar(true)}>
-            ¿Olvidaste tu contraseña?
-          </p>
+            <div>
+              <label className="block text-sm font-medium text-[var(--color-heading)] mb-1.5">
+                Rol de usuario
+              </label>
+              <select
+                className="input"
+                name="rol"
+                value={form.rol}
+                onChange={handleChange}
+              >
+                <option value="admin">Administrador</option>
+                <option value="empleado">Empleado</option>
+              </select>
+            </div>
 
-          <button style={styles.boton} type="submit" disabled={cargando}>
-            {cargando ? 'Ingresando...' : 'Acceder'}
-          </button>
-        </form>
+            <div>
+              <label className="block text-sm font-medium text-[var(--color-heading)] mb-1.5">
+                Contraseña
+              </label>
+              <input
+                className="input"
+                type="password"
+                name="contrasena"
+                value={form.contrasena}
+                onChange={handleChange}
+                placeholder="••••••••"
+                required
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setMostrarRecuperar(true)}
+              className="text-sm text-[var(--color-accent)] hover:underline"
+            >
+              ¿Olvidaste tu contraseña?
+            </button>
+
+            <button
+              type="submit"
+              className="btn-primary w-full justify-center mt-2"
+              disabled={cargando}
+            >
+              <LogIn size={16} />
+              {cargando ? 'Ingresando...' : 'Acceder'}
+            </button>
+          </form>
+        </div>
+
+        <p className="text-center text-xs text-[var(--color-muted)] mt-6">
+          © 2026 Papelería "Don Max" · SIS-A
+        </p>
       </div>
     </div>
-  );
+  )
 }
-
-const styles = {
-  fondo: {
-    display: 'flex', justifyContent: 'center', alignItems: 'center',
-    height: '100vh', backgroundColor: '#1a1a2e'
-  },
-  caja: {
-    backgroundColor: '#fff', padding: '40px', borderRadius: '12px',
-    width: '360px', boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
-  },
-  titulo: { textAlign: 'center', color: '#1a1a2e', marginBottom: '4px' },
-  subtitulo: { textAlign: 'center', color: '#555', marginBottom: '24px', fontWeight: 'normal' },
-  campo: { marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '6px' },
-  input: {
-    padding: '10px', borderRadius: '6px', border: '1px solid #ccc',
-    fontSize: '14px', outline: 'none'
-  },
-  boton: {
-    width: '100%', padding: '12px', backgroundColor: '#1a1a2e',
-    color: '#fff', border: 'none', borderRadius: '6px',
-    fontSize: '16px', cursor: 'pointer', marginTop: '8px'
-  },
-  error: { color: 'red', textAlign: 'center', marginBottom: '12px', fontSize: '14px' },
-  exito: { backgroundColor: '#d4edda', color: '#155724', padding: '10px', borderRadius: '6px', marginBottom: '12px' },
-  link: { color: '#1a1a2e', fontSize: '13px', cursor: 'pointer', textDecoration: 'underline', marginBottom: '8px' }
-};

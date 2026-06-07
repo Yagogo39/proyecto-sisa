@@ -11,46 +11,45 @@ class CajaService {
     if (montoInicial === undefined || montoInicial === null) {
       throw new BadRequestError('El monto inicial es requerido');
     }
-
     if (montoInicial < 0) {
       throw new BadRequestError('El monto inicial no puede ser negativo');
     }
-
     if (!idUsuario) {
       throw new BadRequestError('El usuario responsable es requerido');
     }
-
     const cajaAbierta = await this.Repo.findAbierta();
     if (cajaAbierta) {
       throw new BadRequestError('Ya existe una caja abierta. Debe cerrarla antes de abrir otra');
     }
-
     return await this.Repo.create({ montoInicial, idUsuario });
   }
 
-  async cerrar(idCaja, { montoFinal }) {
+  async cerrar(idCaja, { montoFinal, observaciones, idUsuarioCierre }) {
     if (montoFinal === undefined || montoFinal === null) {
       throw new BadRequestError('El monto final contado es requerido');
     }
-
     if (montoFinal < 0) {
       throw new BadRequestError('El monto final no puede ser negativo');
     }
+    if (!idUsuarioCierre) {
+      throw new BadRequestError('El usuario que cierra es requerido');
+    }
 
     const caja = await this.Repo.findById(idCaja);
-    if (!caja) {
-      throw new NotFoundError('Caja no encontrada');
-    }
-
-    if (caja.estado === 'cerrada') {
-      throw new BadRequestError('Esta caja ya fue cerrada');
-    }
+    if (!caja) throw new NotFoundError('Caja no encontrada');
+    if (caja.estado === 'cerrada') throw new BadRequestError('Esta caja ya fue cerrada');
 
     const totalVentas = await this.Repo.calcularTotalVentas(idCaja);
     const esperado = Number(caja.montoInicial) + Number(totalVentas);
-    const diferencia = Number(montoFinal) - esperado;
+    const diferencia = parseFloat((Number(montoFinal) - esperado).toFixed(2));
 
-    await this.Repo.cerrar(idCaja, montoFinal, totalVentas, diferencia);
+    await this.Repo.cerrar(idCaja, {
+      montoFinal,
+      totalVentasCalculado: totalVentas,
+      diferencia,
+      observaciones,
+      idUsuarioCierre
+    });
 
     let estatusDiferencia = 'cuadre exacto';
     if (diferencia > 0) estatusDiferencia = 'sobrante';
@@ -74,12 +73,13 @@ class CajaService {
     if (!caja) {
       throw new NotFoundError('No hay caja abierta en este momento');
     }
-
     const totalVentas = await this.Repo.calcularTotalVentas(caja.idCaja);
+    const desglose = await this.Repo.desgloseVentas(caja.idCaja);
     return {
       ...caja,
       totalVentasHastaAhora: Number(totalVentas),
-      efectivoEsperado: Number(caja.montoInicial) + Number(totalVentas)
+      efectivoEsperado: Number(caja.montoInicial) + Number(totalVentas),
+      desglose
     };
   }
 
@@ -89,11 +89,12 @@ class CajaService {
 
   async leerPorId(idCaja) {
     const caja = await this.Repo.findById(idCaja);
-    if (!caja) {
-      throw new NotFoundError('Caja no encontrada');
-    }
-    return caja;
-  } 
+    if (!caja) throw new NotFoundError('Caja no encontrada');
+    const desglose = await this.Repo.desgloseVentas(idCaja);
+    const empleados = await this.Repo.empleadosDeCaja(idCaja);
+    const ventas = await this.Repo.ventasDeCaja(idCaja);
+    return { ...caja, desglose, empleados, ventas };
+  }
 }
 
 const cajaService = new CajaService(cajaRepository);

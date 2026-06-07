@@ -1,184 +1,371 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  Plus,
+  ListChecks,
+  Trash2,
+  Minus,
+  ShoppingCart,
+  Package,
+  CheckCircle2,
+  AlertCircle,
+  Printer
+} from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
+import api from '../services/api'
+import PageHeader from '../components/ui/PageHeader'
+import Panel from '../components/ui/Panel'
+import Badge from '../components/ui/Badge'
+import EmptyState from '../components/ui/EmptyState'
+import { Table, THead, TH, TBody, TR, TD } from '../components/ui/Table'
+import ImpresionModal from '../components/modals/ImpresionModal'
 
 export default function Ventas() {
-  const { usuario } = useAuth();
-  const [busqueda, setBusqueda] = useState('');
-  const [productos, setProductos] = useState([]);
-  const [carrito, setCarrito] = useState([]);
-  const [efectivo, setEfectivo] = useState('');
-  const [mensaje, setMensaje] = useState('');
-  const [error, setError] = useState('');
+  const { usuario } = useAuth()
+  const navigate = useNavigate()
 
+  const [productos, setProductos] = useState([])
+  const [busqueda, setBusqueda] = useState('')
+  const [mostrarBuscador, setMostrarBuscador] = useState(false)
+  const [carrito, setCarrito] = useState([])
+  const [efectivo, setEfectivo] = useState('')
+  const [mensaje, setMensaje] = useState('')
+  const [error, setError] = useState('')
+  const [impresionModal, setImpresionModal] = useState(false)
+
+  const cargarProductos = () => {
+    api.get('/productos').then(r => setProductos(r.data)).catch(() => {})
+  }
+
+  useEffect(() => { cargarProductos() }, [])
   useEffect(() => {
-    api.get('/productos').then(r => setProductos(r.data)).catch(() => {});
-  }, []);
+    if (mensaje || error) {
+      const t = setTimeout(() => { setMensaje(''); setError('') }, 3500)
+      return () => clearTimeout(t)
+    }
+  }, [mensaje, error])
 
   const productosFiltrados = productos.filter(p =>
     p.nombre.toLowerCase().includes(busqueda.toLowerCase())
-  );
+  )
+
+  const aceptaDecimales = (unidad) => unidad === 'metro'
 
   const agregarAlCarrito = (producto) => {
-    const existe = carrito.find(i => i.idProducto === producto.idProducto);
+    const existe = carrito.find(i => i.idProducto === producto.idProducto)
+    const incremento = aceptaDecimales(producto.unidadMedida) ? 0.5 : 1
+
     if (existe) {
-      if (existe.cantidad >= producto.stockActual) {
-        setError(`Stock máximo disponible: ${producto.stockActual}`);
-        return;
+      const nuevaCantidad = existe.cantidad + incremento
+      if (nuevaCantidad > Number(producto.stockActual)) {
+        setError(`Stock máximo de "${producto.nombre}": ${producto.stockActual} ${producto.unidadMedida}`)
+        return
       }
       setCarrito(carrito.map(i =>
         i.idProducto === producto.idProducto
-          ? { ...i, cantidad: i.cantidad + 1, subTotal: (i.cantidad + 1) * i.precioUnitario }
+          ? { ...i, cantidad: nuevaCantidad, subTotal: parseFloat((nuevaCantidad * i.precioUnitario).toFixed(2)) }
           : i
-      ));
+      ))
     } else {
+      const cantidadInicial = incremento
       setCarrito([...carrito, {
         idProducto: producto.idProducto,
         nombre: producto.nombre,
-        cantidad: 1,
-        precioUnitario: producto.precioVenta,
-        subTotal: producto.precioVenta
-      }]);
+        unidadMedida: producto.unidadMedida || 'pieza',
+        cantidad: cantidadInicial,
+        precioUnitario: Number(producto.precioVenta),
+        subTotal: parseFloat((cantidadInicial * Number(producto.precioVenta)).toFixed(2)),
+        stockMax: Number(producto.stockActual)
+      }])
     }
-    setError('');
-  };
+    setBusqueda('')
+    setMostrarBuscador(false)
+  }
 
-  const quitarDelCarrito = (idProducto) => {
-    setCarrito(carrito.filter(i => i.idProducto !== idProducto));
-  };
+  const quitarDelCarrito = (id) => setCarrito(carrito.filter(i => i.idProducto !== id))
 
-  const cambiarCantidad = (idProducto, cantidad) => {
-    if (cantidad < 1) return;
+  const cambiarCantidad = (id, nuevaCantidad) => {
+    const item = carrito.find(i => i.idProducto === id)
+    if (!item) return
+    const num = parseFloat(nuevaCantidad)
+    if (isNaN(num) || num <= 0) return
+    const cantidadFinal = aceptaDecimales(item.unidadMedida) ? num : Math.floor(num)
+    if (cantidadFinal <= 0) return
+    if (cantidadFinal > item.stockMax) {
+      setError(`Stock máximo: ${item.stockMax} ${item.unidadMedida}`)
+      return
+    }
     setCarrito(carrito.map(i =>
-      i.idProducto === idProducto
-        ? { ...i, cantidad, subTotal: cantidad * i.precioUnitario }
+      i.idProducto === id
+        ? { ...i, cantidad: cantidadFinal, subTotal: parseFloat((cantidadFinal * i.precioUnitario).toFixed(2)) }
         : i
-    ));
-  };
+    ))
+  }
 
-  const total = carrito.reduce((acc, i) => acc + i.subTotal, 0);
-  const cambio = efectivo ? parseFloat(efectivo) - total : 0;
+  const incrementarCantidad = (id) => {
+    const item = carrito.find(i => i.idProducto === id)
+    if (!item) return
+    const incremento = aceptaDecimales(item.unidadMedida) ? 0.5 : 1
+    cambiarCantidad(id, item.cantidad + incremento)
+  }
+
+  const decrementarCantidad = (id) => {
+    const item = carrito.find(i => i.idProducto === id)
+    if (!item) return
+    const decremento = aceptaDecimales(item.unidadMedida) ? 0.5 : 1
+    if (item.cantidad - decremento < (aceptaDecimales(item.unidadMedida) ? 0.5 : 1)) return
+    cambiarCantidad(id, item.cantidad - decremento)
+  }
+
+  const total = parseFloat(carrito.reduce((acc, i) => acc + i.subTotal, 0).toFixed(2))
+  const cambio = efectivo ? parseFloat(efectivo) - total : 0
+
+  const formatMoney = (n) => `$${Number(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`
+
+  const formatCantidad = (cantidad) => {
+    const num = Number(cantidad)
+    return Number.isInteger(num) ? num.toString() : num.toFixed(2)
+  }
 
   const confirmarVenta = async () => {
-    if (carrito.length === 0) { setError('Agrega al menos un producto'); return; }
-    if (!efectivo || parseFloat(efectivo) < total) { setError('Efectivo insuficiente'); return; }
+    if (carrito.length === 0) { setError('Agrega al menos un producto al carrito'); return }
+    if (!efectivo || parseFloat(efectivo) < total) { setError('El efectivo recibido es insuficiente'); return }
     try {
       await api.post('/ventas', {
         idUsuario: usuario.idUsuario,
         efectivo: parseFloat(efectivo),
         productos: carrito.map(i => ({ idProducto: i.idProducto, cantidad: i.cantidad }))
-      });
-      setMensaje('Venta registrada correctamente');
-      setCarrito([]);
-      setEfectivo('');
-      setError('');
-      api.get('/productos').then(r => setProductos(r.data));
-      setTimeout(() => setMensaje(''), 3000);
+      })
+      setMensaje(`Venta registrada correctamente. Cambio: ${formatMoney(cambio)}`)
+      setCarrito([])
+      setEfectivo('')
+      cargarProductos()
     } catch (err) {
-      setError(err.response?.data?.message || 'Error al registrar venta');
+      setError(err.response?.data?.message || 'Error al registrar la venta')
     }
-  };
+  }
+
+  const colorUnidad = (unidad) => {
+    switch (unidad) {
+      case 'metro':   return 'info'
+      case 'hoja':    return 'purple'
+      case 'paquete': return 'warning'
+      default:        return 'default'
+    }
+  }
 
   return (
-    <div>
-      <h2>Ventas</h2>
-      {mensaje && <p style={styles.exito}>{mensaje}</p>}
-      {error && <p style={styles.error}>{error}</p>}
+    <>
+      <PageHeader title="Ventas" />
 
-      <div style={styles.contenedor}>
-        {/* Buscador y lista de productos */}
-        <div style={styles.izquierda}>
-          <input
-            style={styles.input}
-            placeholder="Buscar producto..."
-            value={busqueda}
-            onChange={e => setBusqueda(e.target.value)}
-          />
-          <div style={styles.listaProductos}>
-            {productosFiltrados.map(p => (
-              <div key={p.idProducto} style={styles.productoItem}>
-                <div>
-                  <p style={styles.nombreProducto}>{p.nombre}</p>
-                  <p style={styles.precioProducto}>${p.precioVenta} — Stock: {p.stockActual}</p>
-                </div>
-                <button style={styles.btnAgregar} onClick={() => agregarAlCarrito(p)}>
-                  + Agregar
-                </button>
-              </div>
-            ))}
-          </div>
+      {mensaje && (
+        <div className="mb-4 flex items-start gap-2.5 p-3.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">
+          <CheckCircle2 size={18} className="shrink-0 mt-0.5" />
+          <span>{mensaje}</span>
         </div>
+      )}
+      {error && (
+        <div className="mb-4 flex items-start gap-2.5 p-3.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+          <AlertCircle size={18} className="shrink-0 mt-0.5" />
+          <span>{error}</span>
+        </div>
+      )}
 
-        {/* Carrito */}
-        <div style={styles.derecha}>
-          <h3>Venta actual</h3>
-          {carrito.length === 0
-            ? <p style={{ color: '#aaa' }}>Sin productos</p>
-            : carrito.map(item => (
-              <div key={item.idProducto} style={styles.carritoItem}>
-                <div style={{ flex: 1 }}>
-                  <p style={{ margin: 0, fontSize: '13px' }}>{item.nombre}</p>
-                  <p style={{ margin: 0, fontSize: '12px', color: '#888' }}>${item.precioUnitario} c/u</p>
-                </div>
-                <div style={styles.cantidadControl}>
-                  <button style={styles.btnCantidad} onClick={() => cambiarCantidad(item.idProducto, item.cantidad - 1)}>-</button>
-                  <span>{item.cantidad}</span>
-                  <button style={styles.btnCantidad} onClick={() => cambiarCantidad(item.idProducto, item.cantidad + 1)}>+</button>
-                </div>
-                <p style={{ margin: 0, minWidth: '60px', textAlign: 'right' }}>${item.subTotal.toFixed(2)}</p>
-                <button style={styles.btnEliminar} onClick={() => quitarDelCarrito(item.idProducto)}>🗑</button>
+      <div className="bg-white border border-[var(--color-border)] rounded-xl p-4 mb-4">
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              className="input"
+              placeholder="Buscar producto por nombre..."
+              value={busqueda}
+              onChange={(e) => { setBusqueda(e.target.value); setMostrarBuscador(true) }}
+              onFocus={() => setMostrarBuscador(true)}
+            />
+
+            {mostrarBuscador && busqueda && (
+              <div className="absolute z-20 mt-2 w-full bg-white border border-[var(--color-border)] rounded-lg shadow-lg max-h-72 overflow-y-auto">
+                {productosFiltrados.length === 0 ? (
+                  <div className="p-4 text-sm text-center text-[var(--color-muted)]">
+                    Sin resultados para "{busqueda}"
+                  </div>
+                ) : (
+                  productosFiltrados.slice(0, 8).map(p => (
+                    <button
+                      key={p.idProducto}
+                      onClick={() => agregarAlCarrito(p)}
+                      disabled={Number(p.stockActual) === 0}
+                      className="w-full flex items-center justify-between p-3 hover:bg-[var(--color-soft)] transition-colors text-left border-b border-[var(--color-border)] last:border-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-[var(--color-heading)]">{p.nombre}</p>
+                          <Badge color={colorUnidad(p.unidadMedida)} size="sm">
+                            {p.unidadMedida || 'pieza'}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-[var(--color-muted)] mt-0.5">
+                          {formatMoney(p.precioVenta)} / {p.unidadMedida || 'pieza'} ·
+                          Stock: {formatCantidad(p.stockActual)} {p.unidadMedida}
+                        </p>
+                      </div>
+                      {Number(p.stockActual) === 0
+                        ? <Badge color="danger">Agotado</Badge>
+                        : <Plus size={16} className="text-[var(--color-accent)]" />
+                      }
+                    </button>
+                  ))
+                )}
               </div>
-            ))
-          }
-
-          <div style={styles.totalSection}>
-            <div style={styles.totalRow}>
-              <span>Importe:</span>
-              <strong>${total.toFixed(2)}</strong>
-            </div>
-            <div style={styles.totalRow}>
-              <span>Efectivo:</span>
-              <input
-                style={{ ...styles.input, width: '100px' }}
-                type="number"
-                value={efectivo}
-                onChange={e => setEfectivo(e.target.value)}
-                placeholder="$0.00"
-              />
-            </div>
-            <div style={styles.totalRow}>
-              <span>Cambio:</span>
-              <strong style={{ color: cambio >= 0 ? '#27ae60' : '#e74c3c' }}>
-                ${cambio.toFixed(2)}
-              </strong>
-            </div>
-            <button style={styles.btnConfirmar} onClick={confirmarVenta}>
-              Confirmar Venta
-            </button>
+            )}
           </div>
+
+          <button
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium transition-colors"
+            onClick={() => setImpresionModal(true)}
+          >
+            <Printer size={16} /> Cobrar Impresión
+          </button>
+
+          <button
+            className="btn-success"
+            onClick={() => navigate('/ventas/historial')}
+          >
+            <ListChecks size={16} /> Historial de Ventas
+          </button>
         </div>
       </div>
-    </div>
-  );
-}
 
-const styles = {
-  contenedor: { display: 'flex', gap: '20px', marginTop: '16px' },
-  izquierda: { flex: 1, backgroundColor: '#fff', borderRadius: '10px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' },
-  derecha: { width: '340px', backgroundColor: '#fff', borderRadius: '10px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' },
-  input: { width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ddd', fontSize: '14px', boxSizing: 'border-box', marginBottom: '12px' },
-  listaProductos: { maxHeight: '400px', overflowY: 'auto' },
-  productoItem: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #eee' },
-  nombreProducto: { margin: 0, fontWeight: 'bold', fontSize: '14px' },
-  precioProducto: { margin: 0, fontSize: '12px', color: '#888' },
-  btnAgregar: { backgroundColor: '#1a1a2e', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer' },
-  carritoItem: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0', borderBottom: '1px solid #eee' },
-  cantidadControl: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' },
-  btnCantidad: { background: '#eee', border: 'none', width: '24px', height: '24px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' },
-  btnEliminar: { background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px' },
-  totalSection: { marginTop: '16px', borderTop: '2px solid #eee', paddingTop: '12px' },
-  totalRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' },
-  btnConfirmar: { width: '100%', padding: '12px', backgroundColor: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '16px', cursor: 'pointer', marginTop: '8px' },
-  exito: { backgroundColor: '#d4edda', color: '#155724', padding: '10px', borderRadius: '6px' },
-  error: { backgroundColor: '#f8d7da', color: '#721c24', padding: '10px', borderRadius: '6px' }
-};
+      <Panel
+        title={`Venta actual (${carrito.length} ${carrito.length === 1 ? 'producto' : 'productos'})`}
+        icon={ShoppingCart}
+      >
+        {carrito.length === 0 ? (
+          <EmptyState
+            icon={Package}
+            title="Sin productos en la venta"
+            description="Busca y agrega productos para comenzar"
+          />
+        ) : (
+          <Table>
+            <THead>
+              <TH>ID</TH>
+              <TH>Nombre</TH>
+              <TH align="center">Unidad</TH>
+              <TH align="center">Cantidad</TH>
+              <TH align="right">Precio</TH>
+              <TH align="right">Subtotal</TH>
+              <TH align="center"></TH>
+            </THead>
+            <TBody>
+              {carrito.map(item => {
+                const esDecimal = aceptaDecimales(item.unidadMedida)
+                return (
+                  <TR key={item.idProducto}>
+                    <TD className="text-[var(--color-muted)]">{item.idProducto}</TD>
+                    <TD className="font-medium">{item.nombre}</TD>
+                    <TD align="center">
+                      <Badge color={colorUnidad(item.unidadMedida)} size="sm">
+                        {item.unidadMedida}
+                      </Badge>
+                    </TD>
+                    <TD align="center">
+                      <div className="inline-flex items-center gap-1">
+                        <button
+                          onClick={() => decrementarCantidad(item.idProducto)}
+                          className="w-7 h-7 rounded-md bg-[var(--color-soft)] hover:bg-[var(--color-border)] grid place-items-center transition-colors"
+                        >
+                          <Minus size={12} />
+                        </button>
+                        {esDecimal ? (
+                          <input
+                            type="number"
+                            value={item.cantidad}
+                            onChange={(e) => cambiarCantidad(item.idProducto, e.target.value)}
+                            step="0.5"
+                            min="0.5"
+                            max={item.stockMax}
+                            className="w-16 text-center font-semibold border border-[var(--color-border)] rounded-md py-0.5 text-sm"
+                          />
+                        ) : (
+                          <span className="w-12 text-center font-semibold">{item.cantidad}</span>
+                        )}
+                        <button
+                          onClick={() => incrementarCantidad(item.idProducto)}
+                          className="w-7 h-7 rounded-md bg-[var(--color-soft)] hover:bg-[var(--color-border)] grid place-items-center transition-colors"
+                        >
+                          <Plus size={12} />
+                        </button>
+                      </div>
+                    </TD>
+                    <TD align="right">
+                      {formatMoney(item.precioUnitario)}
+                      <span className="text-xs text-[var(--color-muted)]"> / {item.unidadMedida}</span>
+                    </TD>
+                    <TD align="right" className="font-semibold">{formatMoney(item.subTotal)}</TD>
+                    <TD align="center">
+                      <button
+                        onClick={() => quitarDelCarrito(item.idProducto)}
+                        className="text-red-500 hover:text-red-700 transition-colors"
+                        aria-label="Eliminar"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </TD>
+                  </TR>
+                )
+              })}
+            </TBody>
+          </Table>
+        )}
+
+        {carrito.length > 0 && (
+          <div className="mt-6 flex justify-end">
+            <div className="w-full md:w-80 space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-[var(--color-muted)]">Importe</span>
+                <span className="font-bold text-lg text-[var(--color-heading)]">
+                  {formatMoney(total)}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-[var(--color-muted)]">Efectivo</span>
+                <input
+                  type="number"
+                  className="input w-32 text-right"
+                  value={efectivo}
+                  onChange={(e) => setEfectivo(e.target.value)}
+                  placeholder="$0.00"
+                  step="0.01"
+                />
+              </div>
+
+              <div className="flex justify-between text-sm pb-3 border-b border-[var(--color-border)]">
+                <span className="text-[var(--color-muted)]">Cambio</span>
+                <span className={`font-bold text-lg ${cambio >= 0 && efectivo ? 'text-emerald-600' : 'text-red-500'}`}>
+                  {efectivo ? formatMoney(cambio) : '$0.00'}
+                </span>
+              </div>
+
+              <button
+                onClick={confirmarVenta}
+                className="btn-primary w-full justify-center"
+                disabled={!efectivo || parseFloat(efectivo) < total}
+              >
+                <CheckCircle2 size={16} />
+                Confirmar Venta
+              </button>
+            </div>
+          </div>
+        )}
+      </Panel>
+
+      <ImpresionModal
+        open={impresionModal}
+        onClose={() => setImpresionModal(false)}
+        onSuccess={(msg) => setMensaje(msg)}
+      />
+    </>
+  )
+}

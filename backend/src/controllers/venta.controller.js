@@ -15,6 +15,16 @@ class VentaController {
     }
   }
 
+  async registrarImpresion(req, res) {
+    try {
+      const respuesta = await this.Service.registrarImpresion(req.body);
+      return res.status(201).json(respuesta);
+    } catch (error) {
+      const codigo = error.statusCode || 500;
+      return res.status(codigo).json({ message: error.message || 'Error interno' });
+    }
+  }
+
   async leer(req, res) {
     try {
       const { fechaInicio, fechaFin, tipoVenta, idUsuario } = req.query;
@@ -36,9 +46,20 @@ class VentaController {
     }
   }
 
-  async totalDelDia(req, res) { 
+  async totalDelDia(req, res) {
     try {
       const respuesta = await this.Service.totalDelDia();
+      return res.json(respuesta);
+    } catch (error) {
+      const codigo = error.statusCode || 500;
+      return res.status(codigo).json({ message: error.message || 'Error interno' });
+    }
+  }
+
+  async productosMasRentables(req, res) {
+    try {
+      const { fechaInicio, fechaFin, limite } = req.query;
+      const respuesta = await this.Service.productosMasRentables({ fechaInicio, fechaFin, limite });
       return res.json(respuesta);
     } catch (error) {
       const codigo = error.statusCode || 500;

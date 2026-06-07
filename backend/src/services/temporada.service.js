@@ -8,23 +8,21 @@ class TemporadaService {
   }
 
   async crear({ nombre, fecha_inicio, fecha_fin, estado }) {
-    if (!nombre || !fecha_inicio || !fecha_fin) {
-      throw new BadRequestError('Nombre, fecha de inicio y fecha de fin son requeridos');
+    if (!nombre) {
+      throw new BadRequestError('El nombre es requerido');
     }
-
-    if (new Date(fecha_inicio) > new Date(fecha_fin)) {
+    if (fecha_inicio && fecha_fin && new Date(fecha_inicio) > new Date(fecha_fin)) {
       throw new BadRequestError('La fecha de inicio no puede ser mayor a la de fin');
     }
-
     if (estado && estado !== 'activa' && estado !== 'inactiva') {
       throw new BadRequestError('El estado debe ser "activa" o "inactiva"');
     }
-
-    if (estado === 'activa') {
-      await this.Repo.desactivarTodas();
-    }
-
-    return await this.Repo.create({ nombre: nombre.trim(), fecha_inicio, fecha_fin, estado });
+    return await this.Repo.create({
+      nombre: nombre.trim(),
+      fecha_inicio: fecha_inicio || null,
+      fecha_fin: fecha_fin || null,
+      estado: estado || 'inactiva'
+    });
   }
 
   async leer() {
@@ -40,11 +38,9 @@ class TemporadaService {
   }
 
   async leerActiva() {
-    const temporada = await this.Repo.findActiva();
-    if (!temporada) {
-      throw new NotFoundError('No hay temporada activa en este momento');
-    }
-    return temporada;
+  
+    const temporadas = await this.Repo.findActivas();
+    return temporadas || [];
   }
 
   async actualizar(idTemporada, { nombre, fecha_inicio, fecha_fin, estado }) {
@@ -52,18 +48,15 @@ class TemporadaService {
     if (!temporada) {
       throw new NotFoundError('Temporada no encontrada');
     }
-
     const datos = {
       nombre: nombre || temporada.nombre,
       fecha_inicio: fecha_inicio || temporada.fecha_inicio,
       fecha_fin: fecha_fin || temporada.fecha_fin,
       estado: estado || temporada.estado
     };
-
-    if (new Date(datos.fecha_inicio) > new Date(datos.fecha_fin)) {
+    if (datos.fecha_inicio && datos.fecha_fin && new Date(datos.fecha_inicio) > new Date(datos.fecha_fin)) {
       throw new BadRequestError('La fecha de inicio no puede ser mayor a la de fin');
     }
-
     await this.Repo.update(idTemporada, datos);
     return { message: 'Temporada actualizada correctamente' };
   }
@@ -75,6 +68,15 @@ class TemporadaService {
     }
     await this.Repo.activar(idTemporada);
     return { message: 'Temporada activada correctamente' };
+  }
+
+  async desactivar(idTemporada) {
+    const temporada = await this.Repo.findById(idTemporada);
+    if (!temporada) {
+      throw new NotFoundError('Temporada no encontrada');
+    }
+    await this.Repo.desactivar(idTemporada);
+    return { message: 'Temporada desactivada correctamente' };
   }
 
   async eliminar(idTemporada) {
